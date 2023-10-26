@@ -16,6 +16,7 @@ def print_help_and_exit(argv):
           "  [--server <server>] \\\n"
           "  [--email <email>] \\\n"
           "  [--token <token>] \\\n"
+          "  [--start <HH:MM:SS>]\n"
           f"--server, --token and --email can be read from {config_file_path} file\n")
     sys.exit()
 
@@ -26,8 +27,9 @@ def main(argv):
     server = None
     email = None
     token = None
+    start = None
 
-    opts, args = getopt.getopt(argv[1:],"hi:c:t:s:e:T:",["issue=", "comment=", "time=", "server=", "email=", "token="])
+    opts, args = getopt.getopt(argv[1:],"hi:c:t:s:e:T:S:",["issue=", "comment=", "time=", "server=", "email=", "token=", "start="])
     for opt, arg in opts:
         if opt in ("-h", "--help"):
             print_help_and_exit(argv)
@@ -43,6 +45,8 @@ def main(argv):
             email = arg
         if opt in ("-T", "--token"):
             token = arg
+        if opt in ("-S", "--start"):
+            start = arg
 
     if email == None or token == None or server == None:
         try:
@@ -66,13 +70,13 @@ def main(argv):
             }
     url = f"https://{server}/rest/api/3/issue/{issue}/worklog"
     auth = HTTPBasicAuth(email, token)
-    payload = json.dumps( {
+    payload = {
         "comment": {
             "content": [
                 {
                     "content": [
                         {
-                            "text": comment,
+                            "text": None,
                             "type": "text"
                             }
                         ],
@@ -82,14 +86,21 @@ def main(argv):
             "type": "doc",
             "version": 1
             },
-        "started": datetime.datetime.now(datetime.timezone.utc).astimezone().strftime("%Y-%m-%dT%H:%M:%S.000%z"),
-        "timeSpent": time
-        } )
+        "started": None,
+        "timeSpent": None
+    }
+    payload["timeSpent"] = time
+    payload["comment"]["content"][0]["content"][0]["text"] = comment
+    if start == None:
+        payload["started"] = datetime.datetime.now(datetime.timezone.utc).astimezone().strftime("%Y-%m-%dT%H:%M:%S.000%z")
+    else:
+        payload["started"] = datetime.datetime.now(datetime.timezone.utc).astimezone().strftime(f"%Y-%m-%dT{start}.000%z")
+    payload_json = json.dumps(payload)
 
     response = requests.request(
             "POST",
             url,
-            data=payload,
+            data=payload_json,
             headers=headers,
             auth=auth
             )
